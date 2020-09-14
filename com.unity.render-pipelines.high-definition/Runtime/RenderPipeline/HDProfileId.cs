@@ -39,11 +39,10 @@ namespace UnityEngine.Rendering.HighDefinition
         PrepareForTransparentSsr,
 
         // SSGI
-        SSGIPass,
         SSGITrace,
         SSGIDenoise,
-        SSGIConvert,
         SSGIUpscale,
+        SSGIPass,
 
         ForwardEmissive,
         ForwardOpaque,

@@ -14,17 +14,10 @@ namespace UnityEngine.Rendering.HighDefinition
             public TextureHandle colorPyramid;
             public TextureHandle historyDepth;
             public TextureHandle hitPointBuffer;
-            public TextureHandle outputBuffer0;
-            public TextureHandle outputBuffer1;
+            public TextureHandle outputBuffer;
         }
 
-        struct TraceOutput
-        {
-            public TextureHandle outputBuffer0;
-            public TextureHandle outputBuffer1;
-        }
-
-        TraceOutput TraceSSGI(RenderGraph renderGraph, HDCamera hdCamera, GlobalIllumination giSettings, TextureHandle depthPyramid, TextureHandle normalBuffer, TextureHandle motionVectorsBuffer)
+        TextureHandle TraceSSGI(RenderGraph renderGraph, HDCamera hdCamera, GlobalIllumination giSettings, TextureHandle depthPyramid, TextureHandle normalBuffer, TextureHandle motionVectorsBuffer)
         {
             using (var builder = renderGraph.AddRenderPass<TraceSSGIPassData>("Trace SSGI", out var passData, ProfilingSampler.Get(HDProfileId.SSGITrace)))
             {
@@ -40,10 +33,8 @@ namespace UnityEngine.Rendering.HighDefinition
                 passData.historyDepth = historyDepth != null ? builder.ReadTexture(renderGraph.ImportTexture(historyDepth)) : renderGraph.defaultResources.blackTextureXR;
                 passData.hitPointBuffer = builder.CreateTransientTexture(new TextureDesc(Vector2.one, true, true)
                 { colorFormat = GraphicsFormat.R16G16B16A16_SFloat, enableRandomWrite = true, name = "SSGI Hit Point"});
-                passData.outputBuffer0 = builder.WriteTexture(renderGraph.CreateTexture(new TextureDesc(Vector2.one, true, true)
-                { colorFormat = GraphicsFormat.R16G16B16A16_SFloat, enableRandomWrite = true, name = "SSGI Signal0"}));
-                passData.outputBuffer1 = builder.WriteTexture(renderGraph.CreateTexture(new TextureDesc(Vector2.one, true, true)
-                { colorFormat = GraphicsFormat.R16G16B16A16_SFloat, enableRandomWrite = true, name = "SSGI Signal1" }));
+                passData.outputBuffer = builder.WriteTexture(renderGraph.CreateTexture(new TextureDesc(Vector2.one, true, true)
+                { colorFormat = GraphicsFormat.R16G16B16A16_SFloat, enableRandomWrite = true, name = "SSGI Signal"}));
 
                 builder.SetRenderFunc(
                 (TraceSSGIPassData data, RenderGraphContext ctx) =>
@@ -56,14 +47,10 @@ namespace UnityEngine.Rendering.HighDefinition
                     resources.colorPyramid = data.colorPyramid;
                     resources.historyDepth = data.historyDepth;
                     resources.hitPointBuffer = data.hitPointBuffer;
-                    resources.outputBuffer0 = data.outputBuffer0;
-                    resources.outputBuffer1 = data.outputBuffer1;
+                    resources.outputBuffer = data.outputBuffer;
                     ExecuteSSGITrace(ctx.cmd, data.parameters, resources);
                 });
-                TraceOutput traceOutput = new TraceOutput();
-                traceOutput.outputBuffer0 = passData.outputBuffer0;
-                traceOutput.outputBuffer1 = passData.outputBuffer1;
-                return traceOutput;
+                return passData.outputBuffer;
             }
         }
 
@@ -101,42 +88,6 @@ namespace UnityEngine.Rendering.HighDefinition
             }
         }
 
-        class ConvertSSGIPassData
-        {
-            public SSGIConvertParameters parameters;
-            public TextureHandle depthTexture;
-            public TextureHandle normalBuffer;
-            public TextureHandle inoutputBuffer0;
-            public TextureHandle inoutputBuffer1;
-        }
-
-        TextureHandle ConvertSSGI(RenderGraph renderGraph, HDCamera hdCamera, bool halfResolution, TextureHandle depthPyramid, TextureHandle normalBuffer, TextureHandle inoutputBuffer0, TextureHandle inoutputBuffer1)
-        {
-            using (var builder = renderGraph.AddRenderPass<ConvertSSGIPassData>("Upscale SSGI", out var passData, ProfilingSampler.Get(HDProfileId.SSGIUpscale)))
-            {
-                builder.EnableAsyncCompute(false);
-
-                passData.parameters = PrepareSSGIConvertParameters(hdCamera, halfResolution);
-                passData.depthTexture = builder.ReadTexture(depthPyramid);
-                passData.normalBuffer = builder.ReadTexture(normalBuffer);
-                passData.inoutputBuffer0 = builder.WriteTexture(builder.ReadTexture(inoutputBuffer0));
-                passData.inoutputBuffer1 = builder.WriteTexture(builder.ReadTexture(inoutputBuffer1));
-
-                builder.SetRenderFunc(
-                (ConvertSSGIPassData data, RenderGraphContext ctx) =>
-                {
-                    // We need to fill the structure that holds the various resources
-                    SSGIConvertResources resources = new SSGIConvertResources();
-                    resources.depthTexture = data.depthTexture;
-                    resources.normalBuffer = data.normalBuffer;
-                    resources.inoutBuffer0 = data.inoutputBuffer0;
-                    resources.inputBufer1 = data.inoutputBuffer1;
-                    ExecuteSSGIConversion(ctx.cmd, data.parameters, resources);
-                });
-                return passData.inoutputBuffer0;
-            }
-        }
-
         TextureHandle RenderSSGI(RenderGraph renderGraph, HDCamera hdCamera, TextureHandle depthPyramid, TextureHandle normalBuffer, TextureHandle motionVectorsBuffer, ShaderVariablesRaytracing shaderVariablesRayTracingCB)
         {
             // Grab the global illumination volume component
@@ -145,17 +96,12 @@ namespace UnityEngine.Rendering.HighDefinition
             using (new RenderGraphProfilingScope(renderGraph, ProfilingSampler.Get(HDProfileId.SSGIPass)))
             {
                 // Trace the signal
-                TraceOutput traceOutput = TraceSSGI(renderGraph, hdCamera, giSettings, depthPyramid, normalBuffer, motionVectorsBuffer);
+                TextureHandle colorBuffer = TraceSSGI(renderGraph, hdCamera, giSettings, depthPyramid, normalBuffer, motionVectorsBuffer);
 
-                // Evaluate the history validity
-                float historyValidity = EvaluateIndirectDiffuseHistoryValidity(hdCamera, giSettings.fullResolutionSS, false);
+                // Denoise the signal
+                float historyValidity = EvaluateHistoryValidity(hdCamera);
                 SSGIDenoiser ssgiDenoiser = GetSSGIDenoiser();
-                SSGIDenoiser.SSGIDenoiserOutput denoiserOutput = ssgiDenoiser.Denoise(renderGraph, hdCamera, depthPyramid, normalBuffer, motionVectorsBuffer, traceOutput.outputBuffer0, traceOutput.outputBuffer1, !giSettings.fullResolutionSS, historyValidity: historyValidity);
-                // Propagate the history
-                PropagateIndirectDiffuseHistoryValidity(hdCamera, giSettings.fullResolutionSS, false);
-
-                // Convert back the result to RGB space
-                TextureHandle colorBuffer = ConvertSSGI(renderGraph, hdCamera, !giSettings.fullResolutionSS, depthPyramid, normalBuffer, denoiserOutput.outputBuffer0, denoiserOutput.outputBuffer1);
+                ssgiDenoiser.Denoise(renderGraph, hdCamera, depthPyramid, normalBuffer, motionVectorsBuffer, colorBuffer, !giSettings.fullResolutionSS, historyValidity: historyValidity);
 
                 // Upscale it if required
                 // If this was a half resolution effect, we still have to upscale it
