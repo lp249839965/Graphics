@@ -42,8 +42,13 @@ void GetSurfaceData(FragInputs input, float3 V, PositionInputs posInput, out Dec
 	surfaceData.baseColor.w *= fadeFactor;
     albedoMapBlend = surfaceData.baseColor.w;
     // outside _COLORMAP because we still have base color for albedoMapBlend
-#ifndef _MATERIAL_AFFECTS_ALBEDO
-	surfaceData.baseColor.w = 0.0;	// dont blend any albedo - Note: as we already do RT color masking this is not needed, albedo will not be affected anyway
+#ifdef _MATERIAL_AFFECTS_ALBEDO
+    if (surfaceData.baseColor.w > 0.0)
+    {
+        surfaceData.HTileMask |= DBUFFERHTILEBIT_DIFFUSE;
+    }	
+#else
+	surfaceData.baseColor.w = 0.0;	// dont blend any albedo
 #endif
 
     // In case of Smoothness / AO / Metal, all the three are always computed but color mask can change
@@ -70,6 +75,11 @@ void GetSurfaceData(FragInputs input, float3 V, PositionInputs posInput, out Dec
     #endif
 
 	surfaceData.mask.w = _MaskBlendSrc ? maskMapBlend : albedoMapBlend;
+
+    if (surfaceData.mask.w > 0.0)
+    {
+        surfaceData.HTileMask |= DBUFFERHTILEBIT_MASK;
+    }
 #endif
 
 	// needs to be after mask, because blend source could be in the mask map blue
@@ -93,6 +103,10 @@ void GetSurfaceData(FragInputs input, float3 V, PositionInputs posInput, out Dec
 
 	surfaceData.normalWS.xyz = normalWS;
 	surfaceData.normalWS.w = _NormalBlendSrc ? maskMapBlend : albedoMapBlend;
+    if (surfaceData.normalWS.w > 0.0)
+    {
+        surfaceData.HTileMask |= DBUFFERHTILEBIT_NORMAL;
+    }
 
 #endif
 

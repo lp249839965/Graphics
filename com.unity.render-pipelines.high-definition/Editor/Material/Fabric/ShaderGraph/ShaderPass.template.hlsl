@@ -1,20 +1,25 @@
 void ApplyDecalToSurfaceData(DecalSurfaceData decalSurfaceData, inout SurfaceData surfaceData)
 {
     // using alpha compositing https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch23.html
-    surfaceData.baseColor.xyz = surfaceData.baseColor.xyz * decalSurfaceData.baseColor.w + decalSurfaceData.baseColor.xyz;
+    if (decalSurfaceData.HTileMask & DBUFFERHTILEBIT_DIFFUSE)
+    {
+        surfaceData.baseColor.xyz = surfaceData.baseColor.xyz * decalSurfaceData.baseColor.w + decalSurfaceData.baseColor.xyz;
+    }
 
-    // Always test the normal as we can have decompression artifact
-    if (decalSurfaceData.normalWS.w < 1.0)
+    if (decalSurfaceData.HTileMask & DBUFFERHTILEBIT_NORMAL)
     {
         surfaceData.normalWS.xyz = normalize(surfaceData.normalWS.xyz * decalSurfaceData.normalWS.w + decalSurfaceData.normalWS.xyz);
     }
 
-#ifdef DECALS_4RT // only smoothness in 3RT mode
-    // Don't apply any metallic modification
-    surfaceData.ambientOcclusion = surfaceData.ambientOcclusion * decalSurfaceData.MAOSBlend.y + decalSurfaceData.mask.y;
-#endif
+    if (decalSurfaceData.HTileMask & DBUFFERHTILEBIT_MASK)
+    {
+        #ifdef DECALS_4RT // only smoothness in 3RT mode
+            // Don't apply any metallic modification
+            surfaceData.ambientOcclusion = surfaceData.ambientOcclusion * decalSurfaceData.MAOSBlend.y + decalSurfaceData.mask.y;
+        #endif
 
-    surfaceData.perceptualSmoothness = surfaceData.perceptualSmoothness * decalSurfaceData.mask.w + decalSurfaceData.mask.z;
+        surfaceData.perceptualSmoothness = surfaceData.perceptualSmoothness * decalSurfaceData.mask.w + decalSurfaceData.mask.z;
+    }
 }
 
 void BuildSurfaceData(FragInputs fragInputs, inout SurfaceDescription surfaceDescription, float3 V, PositionInputs posInput, out SurfaceData surfaceData, out float3 bentNormalWS)
