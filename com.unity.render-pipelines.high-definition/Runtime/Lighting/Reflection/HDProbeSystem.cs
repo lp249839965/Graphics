@@ -87,7 +87,6 @@ namespace UnityEngine.Rendering.HighDefinition
             Texture target = null;
             var hd = (HDRenderPipeline)RenderPipelineManager.currentPipeline;
             var settings = probe.settings;
-            var format = (GraphicsFormat)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionProbeFormat;
             switch (targetMode)
             {
                 case ProbeSettings.Mode.Realtime:
@@ -96,13 +95,12 @@ namespace UnityEngine.Rendering.HighDefinition
                         {
                             case ProbeSettings.ProbeType.PlanarProbe:
                                 target = HDRenderUtilities.CreatePlanarProbeRenderTarget(
-                                    (int)probe.resolution, format
+                                    (int)probe.resolution, (GraphicsFormat)hd.currentPlatformRenderPipelineSettings.colorBufferFormat
                                 );
                                 break;
                             case ProbeSettings.ProbeType.ReflectionProbe:
                                 target = HDRenderUtilities.CreateReflectionProbeRenderTarget(
-                                    (int)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionCubemapSize,
-                                    format
+                                    (int)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionCubemapSize
                                 );
                                 break;
                         }
@@ -115,12 +113,12 @@ namespace UnityEngine.Rendering.HighDefinition
                         {
                             case ProbeSettings.ProbeType.PlanarProbe:
                                 target = HDRenderUtilities.CreatePlanarProbeRenderTarget(
-                                    (int)probe.resolution, format
+                                    (int)probe.resolution, (GraphicsFormat)hd.currentPlatformRenderPipelineSettings.colorBufferFormat
                                 );
                                 break;
                             case ProbeSettings.ProbeType.ReflectionProbe:
                                 target = HDRenderUtilities.CreateReflectionProbeRenderTarget(
-                                    (int)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionCubemapSize, format
+                                    (int)hd.currentPlatformRenderPipelineSettings.lightLoopSettings.reflectionCubemapSize
                                 );
                                 break;
                         }
