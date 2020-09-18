@@ -121,8 +121,19 @@ namespace UnityEditor.Rendering.HighDefinition.Compositor
                 }
             }
 
-            // keep track of shader graph changes: when the user saves a graph, we should load/reflect any new shader properties
-            GraphData.onSaveGraph += MarkShaderAsDirty;
+            if (compositor.shader == null)
+            {
+                CompositionUtils.RemoveCompositionProfileAsset(compositor);
+                CompositionUtils.LoadDefaultCompositionGraph(compositor);
+                CompositionUtils.LoadOrCreateCompositionProfileAsset(compositor);
+                compositor.SetupCompositionMaterial();
+                m_RequiresRedraw = true;
+            }
+            else
+            {
+                // keep track of shader graph changes: when the user saves a graph, we should load/reflect any new shader properties
+                GraphData.onSaveGraph += MarkShaderAsDirty;
+            }
 
             if (compositor.profile == null)
             {
@@ -153,19 +164,20 @@ namespace UnityEditor.Rendering.HighDefinition.Compositor
         void MarkShaderAsDirty(Shader shader, object context)
         {
             CompositionManager compositor = CompositionManager.GetInstance();
-            if (compositor)
-            {
-                compositor.shaderPropertiesAreDirty = true;
-                m_RequiresRedraw = true;
+            compositor.shaderPropertiesAreDirty = true;
+            m_RequiresRedraw = true;
 
-                EditorUtility.SetDirty(compositor);
-                EditorUtility.SetDirty(compositor.profile);
-            }
+            EditorUtility.SetDirty(compositor);
+            EditorUtility.SetDirty(compositor.profile);
         }
 
         private void OnDestroy()
         {
-            GraphData.onSaveGraph -= MarkShaderAsDirty;
+            CompositionManager compositor = CompositionManager.GetInstance();
+            if (compositor && compositor.shader != null)
+            {
+                GraphData.onSaveGraph -= MarkShaderAsDirty;
+            }
 
             Undo.undoRedoPerformed -= UndoCallback;
             s_SelectionIndex = m_Editor.selectionIndex;
