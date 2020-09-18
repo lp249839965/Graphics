@@ -45,8 +45,6 @@ namespace UnityEngine.Rendering.HighDefinition.Compositor
 
         internal AlphaChannelSupport m_AlphaSupport = AlphaChannelSupport.RenderingAndPostProcessing;
 
-        internal float timeSinceLastRepaint;
-
         public bool enableOutput
         {
             get
@@ -724,15 +722,6 @@ namespace UnityEngine.Rendering.HighDefinition.Compositor
             return null;
         }
 
-        public void Repaint()
-        {
-            for (int indx = 0; indx < m_InputLayers.Count; indx++)
-            {
-                if (m_InputLayers[indx].camera)
-                    m_InputLayers[indx].camera.Render();
-            }
-        }
-
         void CustomRender(ScriptableRenderContext context, HDCamera camera)
         {
             if (camera == null || camera.camera == null || m_Material == null || m_Shader == null)
@@ -743,8 +732,6 @@ namespace UnityEngine.Rendering.HighDefinition.Compositor
                 return;
             }
                 
-
-            timeSinceLastRepaint = 0;
 
             // set shader uniforms
             m_CompositionProfile.CopyPropertiesToMaterial(m_Material);

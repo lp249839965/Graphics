@@ -48,30 +48,8 @@ namespace UnityEditor.Rendering.HighDefinition.Compositor
             m_TimeSinceLastRepaint += Time.deltaTime;
 
             // This ensures that layer thumbnails are updated at least 4 times per second (redrawing the UI on every frame is too CPU intensive)
-            const float timeThreshold = 0.25f;
-            if (m_TimeSinceLastRepaint > timeThreshold)
-            {
+            if (m_TimeSinceLastRepaint > 0.25f)
                 Repaint();
-
-                // [case 1266216] Ensure the game view gets repainted a few times per second even when we are not in play mode.
-                // This ensures that we will not always display the first frame, which might have some artifacts for effects that require temporal data 
-                if (!Application.isPlaying)
-                {
-                    CompositionManager compositor = CompositionManager.GetInstance();
-                    if (compositor && compositor.enableOutput)
-                    {
-                        compositor.timeSinceLastRepaint += Time.deltaTime;
-                        // The Editor will repaint the game view if the scene view is also visible (side-by-side) and
-                        // "always refresh" is enabled so we call manually repaint only if enough time has passed
-                        if (compositor.timeSinceLastRepaint > timeThreshold)
-                        {
-                            compositor.Repaint();
-                        }
-                    }
-
-                }
-            }
-                
         }
 
         void OnGUI()
