@@ -45,6 +45,7 @@ namespace UnityEditor.Rendering.Universal
         ShaderKeyword m_AdditionalLightShadows = new ShaderKeyword(ShaderKeywordStrings.AdditionalLightShadows);
         ShaderKeyword m_DeferredAdditionalLightShadows = new ShaderKeyword(ShaderKeywordStrings._DEFERRED_ADDITIONAL_LIGHT_SHADOWS);
         ShaderKeyword m_CascadeShadows = new ShaderKeyword(ShaderKeywordStrings.MainLightShadowCascades);
+        ShaderKeyword m_CastingPunctualLightShadow = new ShaderKeyword(ShaderKeywordStrings.CastingPunctualLightShadow);
         ShaderKeyword m_SoftShadows = new ShaderKeyword(ShaderKeywordStrings.SoftShadows);
         ShaderKeyword m_MixedLightingSubtractive = new ShaderKeyword(ShaderKeywordStrings.MixedLightingSubtractive);
         ShaderKeyword m_Lightmap = new ShaderKeyword(ShaderKeywordStrings.LIGHTMAP_ON);
@@ -101,6 +102,9 @@ namespace UnityEditor.Rendering.Universal
 
                 if (compilerData.shaderKeywordSet.IsEnabled(m_CascadeShadows))
                     return true;
+
+                if (snippetData.passType == PassType.ShadowCaster && !compilerData.shaderKeywordSet.IsEnabled(m_CastingPunctualLightShadow))
+                    return true;
             }
 
             if (!IsFeatureEnabled(features, ShaderFeatures.SoftShadows) &&
@@ -115,6 +119,10 @@ namespace UnityEditor.Rendering.Universal
             bool isAdditionalLightShadow = compilerData.shaderKeywordSet.IsEnabled(m_AdditionalLightShadows);
             if (!IsFeatureEnabled(features, ShaderFeatures.AdditionalLightShadows) && isAdditionalLightShadow)
                 return true;
+
+            bool isPunctualLightShadowCasterPass = (snippetData.passType == PassType.ShadowCaster) && compilerData.shaderKeywordSet.IsEnabled(m_CastingPunctualLightShadow);
+            if (!IsFeatureEnabled(features, ShaderFeatures.AdditionalLightShadows) && isPunctualLightShadowCasterPass)
+                    return true;
 
             bool isDeferredAdditionalShadow = compilerData.shaderKeywordSet.IsEnabled(m_DeferredAdditionalLightShadows);
             if (!IsFeatureEnabled(features, ShaderFeatures.AdditionalLightShadows) && isDeferredAdditionalShadow)
